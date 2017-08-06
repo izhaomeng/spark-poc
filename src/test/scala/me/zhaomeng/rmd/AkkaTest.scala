@@ -1,4 +1,4 @@
-package rmdsystem.scala
+package me.zhaomeng.rmd
 
 import akka.actor.Actor
 import akka.actor.ActorRef

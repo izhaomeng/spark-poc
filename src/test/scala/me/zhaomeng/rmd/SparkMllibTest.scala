@@ -1,4 +1,4 @@
-package rmdsystem.scala
+package me.zhaomeng.rmd
 
 import org.junit.Test
 import org.apache.spark.SparkContext

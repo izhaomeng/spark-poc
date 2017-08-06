@@ -1,4 +1,4 @@
-package rmdsystem.scala
+package me.zhaomeng.rmd
 
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.SQLContext

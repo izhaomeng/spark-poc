@@ -1,4 +1,4 @@
-package rmdsystem.scala
+package me.zhaomeng.rmd
 
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
