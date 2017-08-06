@@ -13,10 +13,15 @@ class ALSRecommender(val url: String, val appName: String) {
   }
   
   def applyALS( dataPath: String) = {
-    var splitter = "::"
+//    var dataPath = "/home/cuikexi/git_workspace/rmdsystem/data/ml-100k/u.data"
+    var splitter = "\t"
     var minPartitions = 1
 
     var data = sc.textFile(dataPath, minPartitions)
+    
+//    var text = "zhaomeng, huangma, 10, 1000"
+//    var data = sc.parallelize(text.split(","), 1)
+    
 
     var rratings = data.map(
       line => {
@@ -34,27 +39,26 @@ class ALSRecommender(val url: String, val appName: String) {
     var timstamps = data.map(line => line.split(splitter)).map(columns => columns(3)).distinct
 
     var carUserItem = users.cartesian(items).map(x => ((x._1, x._2), 1))
+    println(users)
 
     var unmark = carUserItem.union(useritem).reduceByKey((a, b) => a + b).filter(c => c._2 == 1).map(x => (x._1._1.toInt, x._1._2.toInt))
 
     val rank = 1
     val numIterations = 20
     val lambda = 0.01
-    val modle = ALS.train(rratings, rank, numIterations, lambda)
+    val model = ALS.train(rratings, rank, numIterations, lambda)
 
     val usersProducts = rratings.map {
       case Rating(user, product, rate) => (user, product)
     }
 
-    val predictions = modle.predict(unmark).map {
+    val predictions = model.predict(unmark).map {
       case Rating(user, product, rate) => (user, product)
     }
-
-    predictions.foreach(println)
   }
 
   def traingByALS(dataPath: String, modelPath: String) = {
-    var splitter = "::"
+    var splitter = "\t"
     var minPartitions = 1
     var data = sc.textFile(dataPath, minPartitions)
 
@@ -65,30 +69,16 @@ class ALSRecommender(val url: String, val appName: String) {
         }
       })
 
-    var users = data.map(line => line.split(splitter)).map(columns => columns(0)).distinct
-
-    var items = data.map(line => line.split(splitter)).map(columns => columns(1)).distinct
-
-    var useritem = data.map(line => line.split(splitter)).map(columns => ((columns(0), columns(1)), 1))
-
-    var carUserItem = users.cartesian(items).map(x => ((x._1, x._2), 1))
-
-    var unmark = carUserItem.union(useritem).reduceByKey((a, b) => a + b).filter(c => c._2 == 1).map(x => (x._1._1.toInt, x._1._2.toInt))
-
     val rank = 1
     val numIterations = 20
     val lambda = 0.01
     val modle = ALS.train(rratings, rank, numIterations, lambda)
 
-    println(modle.productFeatures)
-    println(modle.rank)
-    println(modle.userFeatures)
-
     modle.save(sc, modelPath)
   }
 
-  def predictByALS(dataPath: String, modelPath: String) = {
-    var splitter = "::"
+  def predictAllOthersByALS(dataPath: String, modelPath: String): Iterator[Rating] = {
+    var splitter = "\t"
     var minPartitions = 1
     var data = sc.textFile(dataPath, minPartitions)
 
@@ -100,21 +90,34 @@ class ALSRecommender(val url: String, val appName: String) {
       })
 
     var users = data.map(line => line.split(splitter)).map(columns => columns(0)).distinct
-
     var items = data.map(line => line.split(splitter)).map(columns => columns(1)).distinct
+    var carUserItem = users.cartesian(items).map(x => ((x._1, x._2), 1))
 
     var useritem = data.map(line => line.split(splitter)).map(columns => ((columns(0), columns(1)), 1))
 
-    var carUserItem = users.cartesian(items).map(x => ((x._1, x._2), 1))
-
-    var unmark = carUserItem.union(useritem).reduceByKey((a, b) => a + b).filter(c => c._2 == 1).map(x => (x._1._1.toInt, x._1._2.toInt))
+    var unmarkUserItem = carUserItem.union(useritem).reduceByKey((a, b) => a + b).filter(c => c._2 == 1).map(x => (x._1._1.toInt, x._1._2.toInt))
 
     val modle = MatrixFactorizationModel.load(sc, modelPath)
 
-    val predictions = modle.predict(unmark).map {
-      case Rating(user, product, rate) => (user, product)
-    }
+    //predict all
+    val predictions = modle.predict(unmarkUserItem)
 
-    predictions.foreach(println)
+    predictions.toLocalIterator
   }
+  
+  def predictProductsForUserByALS(userId: Int, num: Int, modelPath: String):List[Rating] = {
+      val modle = MatrixFactorizationModel.load(sc, modelPath)
+  
+      val predictions = modle.recommendProducts(userId, num)
+  
+      predictions.toList
+   }
+  
+  def predictUsersForProductByALS(productId: Int, num: Int, modelPath: String):List[Rating] = {
+      val modle = MatrixFactorizationModel.load(sc, modelPath)
+  
+      val predictions = modle.recommendUsers(productId, num)
+  
+      predictions.toList
+   }
 }
