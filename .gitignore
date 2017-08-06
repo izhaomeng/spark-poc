@@ -1,1 +1,8 @@
 /target/
+/log/
+/workspace/
+/lucene_index/
+/.settings/
+.classpath
+.project
+.log
